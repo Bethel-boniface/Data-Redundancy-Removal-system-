@@ -193,7 +193,7 @@ jobs:
           EOF
 
       - name: Slack notification
-        if: always()
+        if: always() && secrets.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v1.24.0
         with:
           payload: |
@@ -212,7 +212,6 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
-        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
 
   rollback:
     name: Rollback on Failure
