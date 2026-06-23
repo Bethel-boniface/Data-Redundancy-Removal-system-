@@ -1,0 +1,249 @@
+---
+# Deployment Configuration for EC2
+
+# Application Configuration
+app:
+  name: data-deduplication-system
+  version: 1.0.0
+  port: 3000
+  environment: production
+  log_level: info
+
+# AWS EC2 Configuration
+infrastructure:
+  aws:
+    region: us-east-1
+    instance_type: t3.medium
+    # Min: t3.micro (free tier), t3.small (1GB RAM)
+    # Recommended for production: t3.medium or larger
+    key_name: your-ec2-key-pair
+    security_groups:
+      - default
+      - dedup-app-sg
+    tags:
+      Environment: production
+      Project: data-dedup
+      ManagedBy: terraform
+
+  # VPC/Networking
+  network:
+    vpc_id: vpc-xxxxx  # Set your VPC ID
+    subnet_id: subnet-xxxxx  # Set your subnet ID
+    assign_public_ip: true
+    security_group_rules:
+      - protocol: tcp
+        port_range: 22  # SSH
+        cidr: 0.0.0.0/0  # Restrict this in production
+      - protocol: tcp
+        port_range: 80  # HTTP
+        cidr: 0.0.0.0/0
+      - protocol: tcp
+        port_range: 443  # HTTPS
+        cidr: 0.0.0.0/0
+      - protocol: tcp
+        port_range: 3000  # App
+        cidr: 0.0.0.0/0
+
+# Database Configuration
+database:
+  engine: postgres
+  version: 15
+  instance_class: db.t3.micro
+  allocated_storage: 20  # GB
+  multi_az: false  # Set to true for HA
+  backup_retention_days: 7
+  auto_minor_version_upgrade: true
+  publicly_accessible: false
+  
+  # Connection Settings
+  connection:
+    host: localhost  # Will be replaced with RDS endpoint in production
+    port: 5432
+    database_name: dedup_db
+    username: postgres
+    # Password should be stored in AWS Secrets Manager or parameter store
+    ssl_enabled: true
+
+# Docker Configuration
+docker:
+  container_runtime: docker
+  compose_version: '3.9'
+  registry: ghcr.io
+  image_pull_policy: Always
+  
+  # Resource Limits
+  resources:
+    app:
+      memory: 1024m
+      cpus: 0.5
+    postgres:
+      memory: 512m
+      cpus: 0.5
+
+# Deployment Strategy
+deployment:
+  strategy: rolling  # rolling, blue-green, canary
+  replicas: 1  # Increase for HA
+  
+  # Rolling Update Configuration
+  rolling_update:
+    max_surge: 1
+    max_unavailable: 0
+  
+  # Health Checks
+  health_check:
+    enabled: true
+    endpoint: /health
+    interval: 30s
+    timeout: 10s
+    healthy_threshold: 2
+    unhealthy_threshold: 3
+
+# Monitoring and Logging
+monitoring:
+  enabled: true
+  
+  # CloudWatch Configuration
+  cloudwatch:
+    log_group: /aws/ec2/dedup-app
+    log_retention_days: 30
+    
+  # Metrics
+  metrics:
+    enabled: true
+    namespace: DataDedup
+    
+  # Alarms
+  alarms:
+    - name: HighCPUUsage
+      metric: CPUUtilization
+      threshold: 80
+      comparison: GreaterThanThreshold
+      
+    - name: HighMemoryUsage
+      metric: MemoryUtilization
+      threshold: 85
+      comparison: GreaterThanThreshold
+      
+    - name: HealthCheckFailure
+      metric: HealthCheckStatus
+      threshold: 0
+      comparison: LessThanThreshold
+
+# Backup and Recovery
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM UTC
+  retention_days: 30
+  backup_location: s3://your-backup-bucket/dedup/
+  
+  # Point-in-time recovery
+  pitr_enabled: true
+  pitr_retention_days: 7
+
+# Auto-scaling Configuration
+auto_scaling:
+  enabled: false  # Enable for production HA
+  
+  cpu_scaling:
+    target_utilization: 70
+    scale_up_cooldown: 300
+    scale_down_cooldown: 300
+    min_replicas: 1
+    max_replicas: 3
+    
+  memory_scaling:
+    target_utilization: 80
+    scale_up_cooldown: 300
+    scale_down_cooldown: 300
+
+# SSL/TLS Configuration
+ssl:
+  enabled: true
+  provider: letsencrypt  # or aws-acm
+  certificate_arn: arn:aws:acm:region:account:certificate/xxxxx
+  auto_renewal: true
+
+# Secrets Management
+secrets:
+  provider: aws-secrets-manager  # or parameter-store
+  db_password: /dedup/db/password
+  jwt_secret: /dedup/jwt/secret
+  api_keys: /dedup/api/keys
+  rotation_enabled: true
+  rotation_days: 90
+
+# Backup and Disaster Recovery
+disaster_recovery:
+  backup_region: us-west-2
+  backup_frequency: daily
+  recovery_time_objective_hours: 4  # RTO
+  recovery_point_objective_hours: 1  # RPO
+  cross_region_replication: true
+
+# Performance Tuning
+performance:
+  connection_pool_size: 20
+  max_idle_connections: 10
+  idle_timeout_seconds: 30
+  query_timeout_seconds: 30
+  
+  # Caching
+  cache:
+    enabled: true
+    type: redis
+    ttl_seconds: 3600
+
+# Security Settings
+security:
+  cors_enabled: true
+  cors_origins:
+    - http://localhost:3000
+    - https://yourdomain.com
+  
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100
+  
+  authentication:
+    jwt_enabled: true
+    jwt_expiry_hours: 168  # 7 days
+    
+  headers:
+    x_frame_options: DENY
+    x_content_type_options: nosniff
+    x_xss_protection: 1; mode=block
+    strict_transport_security: max-age=31536000; includeSubDomains
+
+# Deployment Notifications
+notifications:
+  slack:
+    enabled: true
+    webhook_url: ${SLACK_WEBHOOK_URL}
+    channels:
+      - "#deployments"
+      - "#alerts"
+  
+  email:
+    enabled: false
+    recipients:
+      - devops@company.com
+
+# Post-Deployment Validation
+validation:
+  smoke_tests_enabled: true
+  tests:
+    - path: /health
+      method: GET
+      expected_status: 200
+      
+    - path: /api/v1/data
+      method: GET
+      expected_status: 200
+
+# Rollback Configuration
+rollback:
+  auto_rollback_on_failure: true
+  failure_threshold: 3
+  health_check_before_cleanup: true
+  keep_previous_versions: 3

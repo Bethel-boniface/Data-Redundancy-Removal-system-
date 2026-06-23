@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Deduplication Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>Data Deduplication Dashboard</h1>
+        <p>Submit data, validate duplicates, and see deduplication statistics.</p>
+      </header>
+
+      <main>
+        <section class="card">
+          <h2>Submit Data</h2>
+          <form id="submit-form">
+            <label>
+              JSON Payload
+              <textarea id="content" placeholder='{"name": "John Doe", "email": "john@example.com"}'></textarea>
+            </label>
+            <label>
+              Metadata (optional)
+              <textarea id="metadata" placeholder='{"source": "web_form"}'></textarea>
+            </label>
+            <button type="submit">Submit</button>
+          </form>
+          <div id="submit-result" class="result"></div>
+        </section>
+
+        <section class="card two-column">
+          <div>
+            <h2>Validate Data</h2>
+            <form id="validate-form">
+              <label>
+                JSON Payload
+                <textarea id="validate-content" placeholder='{"name": "Jane Smith", "email": "jane@example.com"}'></textarea>
+              </label>
+              <label>
+                Metadata (optional)
+                <textarea id="validate-metadata" placeholder='{"source": "api"}'></textarea>
+              </label>
+              <button type="submit">Validate</button>
+            </form>
+            <div id="validate-result" class="result"></div>
+          </div>
+
+          <div>
+            <h2>Deduplication Stats</h2>
+            <button id="refresh-stats">Refresh Stats</button>
+            <div id="stats" class="result"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
